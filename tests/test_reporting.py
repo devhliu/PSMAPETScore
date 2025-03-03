@@ -12,9 +12,10 @@ def test_report_generation():
     Test the report generation functionality with sample data.
     """
     # Create output directories
-    output_dir = Path("d:/WSL/workspace/devhliu/PSMAPET/PSMAPETScore/tests/output")
-    vis_output_dir = output_dir / "visualizations"
-    report_output_dir = output_dir / "reports"
+    output_dir = Path(os.path.join(Path(__file__).parent, "output"))
+    vis_output_dir = Path(os.path.join(output_dir, "visualizations"))
+    report_output_dir = Path(os.path.join(output_dir, "reports"))
+
     
     # Create directories if they don't exist
     output_dir.mkdir(exist_ok=True)

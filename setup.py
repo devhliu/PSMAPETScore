@@ -10,13 +10,11 @@ setup(
     },
     include_package_data=True,
     install_requires=[
-        "numpy",
         "pydicom",
         "nibabel",
         "SimpleITK",
         "torch",
         "torchvision",
-        "monai",
         "scikit-learn",
         "scikit-image",
         "pandas",

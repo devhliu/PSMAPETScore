@@ -5,9 +5,10 @@ Base class for nnUNetv2-based segmentation.
 import os
 import torch
 import numpy as np
+import SimpleITK as sitk
 from typing import Dict, List, Optional, Union, Tuple
 from pathlib import Path
-from nnunetv2.inference.predict_from_raw_data import predict_from_raw_data
+from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
 from nnunetv2.paths import nnUNet_results
 
 
@@ -41,6 +42,25 @@ class BaseSegmentation:
             
         # Set device
         self.device = torch.device("cuda" if self.use_gpu else "cpu")
+        
+        # Initialize nnUNetPredictor
+        self.predictor = nnUNetPredictor(
+            tile_step_size=0.5,
+            use_gaussian=True,
+            use_mirroring=True,
+            perform_everything_on_device=True,
+            device=self.device,
+            verbose=self.verbose,
+            verbose_preprocessing=False,
+            allow_tqdm=True
+        )
+        
+        # Initialize the model
+        self.predictor.initialize_from_trained_model_folder(
+            str(self.model_folder),
+            use_folds=(0,),  # Default to using fold 0
+            checkpoint_name='checkpoint_final.pth',
+        )
     
     def preprocess(self, image: np.ndarray) -> np.ndarray:
         """
@@ -86,19 +106,48 @@ class BaseSegmentation:
         # Preprocess
         preprocessed = [self.preprocess(img) for img in input_images]
         
-        # Run nnUNet prediction
-        prediction = predict_from_raw_data(
-            list_of_lists_or_source_folder=preprocessed,
-            output_folder=self.model_folder / "predictions",
-            model_folder=self.model_folder,
-            use_gpu=self.use_gpu,
-            verbose=self.verbose,
+        # Create temporary input and output folders
+        input_folder = self.model_folder / "temp_input"
+        output_folder = self.model_folder / "predictions"
+        input_folder.mkdir(exist_ok=True, parents=True)
+        output_folder.mkdir(exist_ok=True, parents=True)
+        
+        # Save preprocessed images to input folder and prepare file paths
+        input_files = []
+        output_files = []
+        
+        for i, img in enumerate(preprocessed):
+            # Create a unique filename for this image
+            input_filename = f"image_{i:03d}.nii.gz"
+            output_filename = f"pred_{i:03d}.nii.gz"
+            
+            # Save as NIfTI file
+            img_sitk = sitk.GetImageFromArray(img)
+            sitk.WriteImage(img_sitk, str(input_folder / input_filename))
+            
+            # Add to file lists (nnUNetPredictor expects nested lists for input files)
+            input_files.append([str(input_folder / input_filename)])
+            output_files.append(str(output_folder / output_filename))
+        
+        # Run prediction using nnUNetPredictor
+        predictions = self.predictor.predict_from_files(
+            input_files,
+            output_files,
             save_probabilities=False,
-            overwrite=True
+            overwrite=True,
+            num_processes_preprocessing=2,
+            num_processes_segmentation_export=2
         )
         
+        # If predictions were returned directly, use them
+        # Otherwise, load from output files
+        if predictions is None:
+            # Load predictions from output folder
+            prediction_files = sorted(list(output_folder.glob("*.nii.gz")))
+            predictions = [sitk.GetArrayFromImage(sitk.ReadImage(str(f))) for f in prediction_files]
+        
         # Postprocess
-        result = self.postprocess(prediction)
+        result = self.postprocess(predictions[0] if len(predictions) == 1 else predictions)
         
         metadata = {
             "model_name": self.task_name,
