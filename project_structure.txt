@@ -1,0 +1,27 @@
+PSMAPETScore/
+├── psmapetscore/
+│   ├── __init__.py
+│   ├── io/
+│   │   ├── __init__.py
+│   │   ├── dicom_io.py
+│   │   └── nifti_io.py
+│   ├── segmentation/
+│   │   ├── __init__.py
+│   │   ├── ct_segmentation.py
+│   │   ├── mri_segmentation.py
+│   │   └── pet_lesion_segmentation.py
+│   ├── quantification/
+│   │   ├── __init__.py
+│   │   ├── promise_criteria.py
+│   │   └── uptake_analysis.py
+│   └── reporting/
+│       ├── __init__.py
+│       ├── report_generator.py
+│       └── visualization.py
+├── models/
+│   └── README.md
+├── tests/
+│   └── __init__.py
+├── setup.py
+├── README.md
+└── LICENSE
